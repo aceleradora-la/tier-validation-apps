@@ -2,7 +2,7 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
 
 from odoo import api, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import AccessError, UserError, ValidationError
 
 _OPEN_STATUSES = ("waiting", "pending")
 
@@ -122,3 +122,57 @@ class TierReview(models.Model):
         """Rechazar desde la bandeja, con las reglas del documento de origen."""
         self._my_approvals_check_turn()
         return self._my_approvals_document().reject_tier()
+
+    def action_my_approvals_validate_bulk(self):
+        """Aprobar en lote las revisiones seleccionadas que me tocan ahora.
+
+        Se aprueba una vez por documento (validate_tier ya aprueba todas mis
+        revisiones consecutivas). Se saltean las que no me tocan y las que
+        piden comentario, que se aprueban de a una. Si un documento falla, se
+        informa y se sigue con el resto.
+        """
+        mine = self.filtered("can_review_mine")
+        skipped = self - mine
+        approved = need_comment = self.browse()
+        failed = []
+        for reviews in mine.grouped(lambda r: (r.model, r.res_id)).values():
+            document = reviews[0]._my_approvals_document()
+            if document.has_comment:
+                need_comment |= reviews
+                continue
+            try:
+                with self.env.cr.savepoint():
+                    document.validate_tier()
+            except (AccessError, UserError, ValidationError) as error:
+                failed.append(f"{reviews[0].res_name}: {error.args[0]}")
+                continue
+            approved |= reviews
+        return self._my_approvals_bulk_notification(
+            approved, need_comment, failed, skipped
+        )
+
+    def _my_approvals_bulk_notification(self, approved, need_comment, failed, skipped):
+        _ = self.env._
+        lines = [_("Aprobadas: %s.", len(approved))]
+        if need_comment:
+            lines.append(
+                _(
+                    "Piden comentario (aprobalas de a una): %s.",
+                    ", ".join(need_comment.mapped("res_name")),
+                )
+            )
+        if failed:
+            lines.append(_("No se pudieron aprobar: %s.", "; ".join(failed)))
+        if skipped:
+            lines.append(_("No te tocan ahora: %s.", len(skipped)))
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Aprobar seleccionadas"),
+                "message": " ".join(lines),
+                "type": "success" if approved and not failed else "warning",
+                "sticky": bool(need_comment or failed),
+                "next": {"type": "ir.actions.client", "tag": "soft_reload"},
+            },
+        }

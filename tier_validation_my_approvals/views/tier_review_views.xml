@@ -13,6 +13,10 @@
                   decoration-success="status == 'approved'"
                   decoration-danger="status == 'rejected'"
                   decoration-muted="status == 'cancel'">
+                <header>
+                    <button name="action_my_approvals_validate_bulk" type="object"
+                            string="Aprobar seleccionadas" class="btn-primary"/>
+                </header>
                 <field name="status" column_invisible="1"/>
                 <field name="can_review_mine" column_invisible="1"/>
                 <field name="res_model_id" string="Tipo" options="{'no_open': True}"/>

@@ -55,6 +55,12 @@ class TestMyApprovalsSetup(TransactionCase):
         with self.assertRaises(UserError):
             review.action_my_approvals_validate()
 
+    def test_bulk_without_tier_validation(self):
+        # La aprobación masiva no falla: la saltea porque no le toca a nadie.
+        action = self.review.with_user(self.user).action_my_approvals_validate_bulk()
+        self.assertIn("No te tocan ahora: 1", action["params"]["message"])
+        self.assertEqual(self.review.status, "pending")
+
     def test_menus_and_groups(self):
         root = self.env.ref("tier_validation_my_approvals.menu_my_approvals_root")
         self.assertTrue(root.web_icon)
@@ -151,3 +157,40 @@ class TestMyApprovalsFlow(CommonTierValidation):
         first.with_user(self.test_user_2).action_my_approvals_validate()
         second.invalidate_recordset(["can_review_mine"])
         self.assertTrue(second.with_user(self.test_user_1).can_review_mine)
+
+    def test_bulk_validate(self):
+        other = self.test_model.create({"test_field": 1.0})
+        other.with_user(self.test_user_2).request_validation()
+        # Una revisión de test_user_1 que todavía no le toca (secuencia).
+        later = self.test_model.create({"test_field": 4.0})
+        later.with_user(self.test_user_2).request_validation()
+        not_yet = later.review_ids.filtered(lambda r: r.sequence == 20)
+        selected = self.review | other.review_ids | not_yet
+        action = selected.with_user(
+            self.test_user_1
+        ).action_my_approvals_validate_bulk()
+        self.assertEqual(self.review.status, "approved")
+        self.assertEqual(other.review_ids.status, "approved")
+        self.assertNotEqual(not_yet.status, "approved")
+        message = action["params"]["message"]
+        self.assertIn("Aprobadas: 2", message)
+        self.assertIn("No te tocan ahora: 1", message)
+
+    def test_bulk_skips_reviews_that_need_comment(self):
+        self.tier_def_obj.create(
+            {
+                "model_id": self.tester_model.id,
+                "review_type": "individual",
+                "reviewer_id": self.test_user_1.id,
+                "definition_domain": "[('test_field', '=', 0.5)]",
+                "has_comment": True,
+                "name": "Pide comentario",
+            }
+        )
+        record = self.test_model.create({"test_field": 0.5})
+        record.with_user(self.test_user_2).request_validation()
+        review = record.review_ids
+        action = review.with_user(self.test_user_1).action_my_approvals_validate_bulk()
+        self.assertEqual(review.status, "pending")
+        self.assertIn("Piden comentario", action["params"]["message"])
+        self.assertTrue(action["params"]["sticky"])

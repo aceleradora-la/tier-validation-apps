@@ -28,6 +28,12 @@ Los botones **Aprobar** y **Rechazar** aparecen solo cuando es mi turno. Llaman 
 se respetan las reglas propias de cada modelo (etapas del expediente, fases de la SG, avisos,
 comentarios obligatorios). El turno lo decide el documento con `_get_sequences_to_approve`.
 
+**Aprobar seleccionadas:** al marcar filas en la lista aparece el botón *Aprobar seleccionadas*.
+Aprueba una vez por documento las que te tocan ahora, de cualquier tipo, y muestra un resumen:
+cuántas se aprobaron, cuáles **piden comentario** (esas se aprueban de a una, desde la fila o el
+formulario), cuáles no se pudieron aprobar y por qué, y cuántas no te tocaban. Si un documento
+falla, los demás se aprueban igual.
+
 **Límite:** para aprobar desde la bandeja hay que poder leer el documento, igual que al aprobar
 desde el propio documento.
 
