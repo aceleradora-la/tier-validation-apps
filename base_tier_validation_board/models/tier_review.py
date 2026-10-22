@@ -80,7 +80,10 @@ class TierReview(models.Model):
     @api.model
     def _board_visible_ids(self, ids):
         """Subset of ``ids`` visible to the current user (see ``_search``)."""
-        self.flush_model(["model", "res_id", "done_by", "requested_by"])
+        # reviewer_ids is a stored computed many2many: a domain on it reads the
+        # relation table without flushing it, so a review created in this
+        # transaction would not be found for its reviewer.
+        self.flush_model(["model", "res_id", "done_by", "requested_by", "reviewer_ids"])
         uid = self.env.uid
         visible = set(
             self.sudo()

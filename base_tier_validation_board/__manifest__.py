@@ -4,7 +4,7 @@
 {
     "name": "Tier Review Activity Board",
     "summary": "Add Tier Review Boards",
-    "version": "18.0.1.0.0",
+    "version": "18.0.1.0.1",
     "development_status": "Beta",
     "maintainers": ["JasminSForgeFlow"],
     "category": "Tools",

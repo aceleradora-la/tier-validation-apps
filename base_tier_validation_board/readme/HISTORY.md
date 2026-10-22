@@ -1,3 +1,9 @@
+## 18.0.1.0.1
+
+- Reviewers find a review created in the same transaction: `reviewer_ids`
+  is flushed before searching, since a domain on a many2many does not flush
+  its relation table.
+
 ## 18.0.1.0.0
 
 - Migration to 18.0, from OCA/server-ux#1155.
