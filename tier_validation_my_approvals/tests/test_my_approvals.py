@@ -1,0 +1,153 @@
+# Copyright 2026 aceleradora.la
+# License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
+
+import unittest
+
+from odoo.exceptions import UserError
+from odoo.tests import new_test_user, tagged
+from odoo.tests.common import TransactionCase
+from odoo.tools.safe_eval import safe_eval
+
+try:
+    # Usa odoo_test_helper para crear modelos de prueba con tier validation.
+    from odoo.addons.base_tier_validation.tests.common import CommonTierValidation
+
+    MISSING_TEST_HELPER = False
+except ImportError:
+    CommonTierValidation = TransactionCase
+    MISSING_TEST_HELPER = True
+
+
+@tagged("post_install", "-at_install")
+class TestMyApprovalsSetup(TransactionCase):
+    """Lo que no necesita un modelo con tier validation."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.env = cls.env(context=dict(cls.env.context, tracking_disable=True))
+        cls.user = new_test_user(cls.env, login="my_approvals_user")
+        cls.partner = cls.env["res.partner"].create({"name": "Mis aprobaciones"})
+        definition = cls.env["tier.definition"].create(
+            {
+                "name": "Mis aprobaciones test",
+                "model_id": cls.env["ir.model"]._get("res.partner").id,
+                "review_type": "individual",
+                "reviewer_id": cls.user.id,
+            }
+        )
+        cls.review = cls.env["tier.review"].create(
+            {
+                "model": "res.partner",
+                "res_id": cls.partner.id,
+                "definition_id": definition.id,
+                "status": "pending",
+            }
+        )
+
+    def test_res_model_id(self):
+        self.assertEqual(self.review.res_model_id.model, "res.partner")
+
+    def test_document_without_tier_validation(self):
+        # res.partner no tiene tier validation: no hay turno ni se puede aprobar.
+        review = self.review.with_user(self.user)
+        self.assertFalse(review.can_review_mine)
+        with self.assertRaises(UserError):
+            review.action_my_approvals_validate()
+
+    def test_menus_and_groups(self):
+        root = self.env.ref("tier_validation_my_approvals.menu_my_approvals_root")
+        self.assertTrue(root.web_icon)
+        menus = (
+            self.env["ir.ui.menu"]
+            .with_user(self.user)
+            .search([("id", "child_of", root.id)])
+        )
+        names = set(menus.mapped("name"))
+        self.assertIn("Por aprobar", names)
+        self.assertNotIn("Todas", names)
+        self.assertNotIn("Configuración", names)
+        manager = self.env.ref(
+            "tier_validation_my_approvals.group_my_approvals_manager"
+        )
+        self.user.groups_id = [(4, manager.id)]
+        self.env["ir.ui.menu"].invalidate_model()
+        names = set(
+            self.env["ir.ui.menu"]
+            .with_user(self.user)
+            .search([("id", "child_of", root.id)])
+            .mapped("name")
+        )
+        self.assertTrue({"Todas", "Análisis", "Configuración"} <= names)
+        # El administrador de la app edita definiciones sin Ajustes / Técnico.
+        definitions = self.env["tier.definition"].with_user(self.user)
+        self.assertTrue(definitions.has_access("write"))
+
+
+@unittest.skipIf(MISSING_TEST_HELPER, "odoo_test_helper no está instalado")
+@tagged("post_install", "-at_install")
+class TestMyApprovalsFlow(CommonTierValidation):
+    """Aprobar y rechazar desde la bandeja, con un modelo de prueba de OCA."""
+
+    def setUp(self):
+        super().setUp()
+        # test_record (test_field=1.0) pide una sola aprobación de test_user_1.
+        self.test_record.with_user(self.test_user_2).request_validation()
+        self.review = self.test_record.review_ids
+        self.assertEqual(len(self.review), 1)
+
+    def _search_mine(self, user, value=True):
+        return (
+            self.env["tier.review"]
+            .with_user(user)
+            .search([("id", "=", self.review.id), ("can_review_mine", "=", value)])
+        )
+
+    def test_res_model_id(self):
+        self.assertEqual(self.review.res_model_id, self.tester_model)
+
+    def test_can_review_mine(self):
+        self.assertTrue(self.review.with_user(self.test_user_1).can_review_mine)
+        self.assertFalse(self.review.with_user(self.test_user_2).can_review_mine)
+        self.assertEqual(self._search_mine(self.test_user_1), self.review)
+        self.assertFalse(self._search_mine(self.test_user_2))
+        self.assertEqual(self._search_mine(self.test_user_2, False), self.review)
+
+    def test_to_approve_action_domain(self):
+        action = self.env.ref(
+            "tier_validation_my_approvals.action_my_approvals_to_approve"
+        )
+        domain = safe_eval(action.domain, {"uid": self.test_user_1.id})
+        found = self.env["tier.review"].with_user(self.test_user_1).search(domain)
+        self.assertIn(self.review, found)
+
+    def test_validate_from_inbox(self):
+        self.review.with_user(self.test_user_1).action_my_approvals_validate()
+        self.assertEqual(self.review.status, "approved")
+        self.assertEqual(self.review.done_by, self.test_user_1)
+        self.assertTrue(self.test_record.validated)
+        self.assertGreaterEqual(self.review.approval_duration_days, 0.0)
+        self.assertEqual(self.review.approval_qty, 1)
+
+    def test_reject_from_inbox(self):
+        self.review.with_user(self.test_user_1).action_my_approvals_reject()
+        self.assertEqual(self.review.status, "rejected")
+        self.assertTrue(self.test_record.rejected)
+
+    def test_not_my_turn(self):
+        with self.assertRaises(UserError):
+            self.review.with_user(self.test_user_2).action_my_approvals_validate()
+        self.assertEqual(self.review.status, "pending")
+
+    def test_turn_follows_sequence(self):
+        # test_field > 3: primero aprueba test_user_2 (secuencia 10), después
+        # test_user_1 (secuencia 20).
+        record = self.test_model.create({"test_field": 4.0})
+        record.with_user(self.test_user_3_multi_company).request_validation()
+        first = record.review_ids.filtered(lambda r: r.sequence == 10)
+        second = record.review_ids.filtered(lambda r: r.sequence == 20)
+        self.assertTrue(first.with_user(self.test_user_2).can_review_mine)
+        self.assertFalse(second.with_user(self.test_user_1).can_review_mine)
+        first.with_user(self.test_user_2).action_my_approvals_validate()
+        second.invalidate_recordset(["can_review_mine"])
+        self.assertTrue(second.with_user(self.test_user_1).can_review_mine)

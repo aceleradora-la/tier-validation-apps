@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="module_category_my_approvals" model="ir.module.category">
+        <field name="name">Mis aprobaciones</field>
+        <field name="sequence">60</field>
+    </record>
+
+    <!-- Ve "Todas" y "Análisis". Igual queda limitado a las revisiones de
+         documentos que puede leer (base_tier_validation_board). -->
+    <record id="group_my_approvals_supervisor" model="res.groups">
+        <field name="name">Supervisor</field>
+        <field name="category_id" ref="module_category_my_approvals"/>
+        <field name="implied_ids" eval="[Command.link(ref('base.group_user'))]"/>
+    </record>
+
+    <!-- Administra las definiciones de aprobación sin necesitar Ajustes / Técnico. -->
+    <record id="group_my_approvals_manager" model="res.groups">
+        <field name="name">Administrador</field>
+        <field name="category_id" ref="module_category_my_approvals"/>
+        <field name="implied_ids" eval="[Command.link(ref('group_my_approvals_supervisor'))]"/>
+        <field name="users" eval="[Command.link(ref('base.user_root')), Command.link(ref('base.user_admin'))]"/>
+    </record>
+</odoo>

@@ -4,10 +4,16 @@ Módulos de Odoo sobre las aprobaciones por niveles de OCA (`base_tier_validatio
 
 | | |
 |---|---|
-| **Módulos** | `base_tier_validation_board` |
+| **Módulos** | `base_tier_validation_board`, `tier_validation_my_approvals` |
 | **Licencia** | AGPL-3 |
 | **Versiones** | 18.0 — Community y Enterprise |
 | **Depende de** | [`base_tier_validation`](https://github.com/OCA/server-ux/tree/18.0/base_tier_validation) (OCA server-ux), `spreadsheet_dashboard` |
+
+## `tier_validation_my_approvals` — app "Mis aprobaciones"
+
+Aplicación con ícono propio que reúne las aprobaciones por niveles de todos los documentos, con
+menús Por aprobar, Solicitadas por mí, Historial, Todas y Análisis, y botones para aprobar o
+rechazar desde la bandeja. Detalle en su [README](tier_validation_my_approvals/README.md).
 
 ## `base_tier_validation_board`
 

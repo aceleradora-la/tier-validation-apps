@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_my_approvals_root"
+              name="Mis aprobaciones"
+              web_icon="tier_validation_my_approvals,static/description/icon.svg"
+              groups="base.group_user"
+              sequence="45"/>
+
+    <menuitem id="menu_my_approvals_to_approve"
+              name="Por aprobar"
+              parent="menu_my_approvals_root"
+              action="action_my_approvals_to_approve"
+              sequence="10"/>
+
+    <menuitem id="menu_my_approvals_requested"
+              name="Solicitadas por mí"
+              parent="menu_my_approvals_root"
+              action="action_my_approvals_requested"
+              sequence="20"/>
+
+    <menuitem id="menu_my_approvals_history"
+              name="Historial"
+              parent="menu_my_approvals_root"
+              action="action_my_approvals_history"
+              sequence="30"/>
+
+    <menuitem id="menu_my_approvals_all"
+              name="Todas"
+              parent="menu_my_approvals_root"
+              action="action_my_approvals_all"
+              groups="group_my_approvals_supervisor"
+              sequence="40"/>
+
+    <menuitem id="menu_my_approvals_analysis"
+              name="Análisis"
+              parent="menu_my_approvals_root"
+              action="action_my_approvals_analysis"
+              groups="group_my_approvals_supervisor"
+              sequence="50"/>
+
+    <menuitem id="menu_my_approvals_config"
+              name="Configuración"
+              parent="menu_my_approvals_root"
+              groups="group_my_approvals_manager"
+              sequence="90"/>
+
+    <menuitem id="menu_my_approvals_definitions"
+              name="Definiciones de aprobación"
+              parent="menu_my_approvals_config"
+              action="base_tier_validation.tier_definition_action"
+              sequence="10"/>
+
+    <menuitem id="menu_my_approvals_exceptions"
+              name="Excepciones de validación"
+              parent="menu_my_approvals_config"
+              action="base_tier_validation.tier_validation_exception_action"
+              sequence="20"/>
+</odoo>

@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Prioridad alta: las vistas se usan solo desde las acciones de la app
+         (view_ids), no reemplazan a las de base_tier_validation. -->
+    <record id="tier_review_view_list_my_approvals" model="ir.ui.view">
+        <field name="name">tier.review.list.my.approvals</field>
+        <field name="model">tier.review</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <list string="Aprobaciones" create="0" edit="0" delete="0"
+                  default_order="create_date desc, id desc"
+                  decoration-info="status in ('waiting', 'pending')"
+                  decoration-success="status == 'approved'"
+                  decoration-danger="status == 'rejected'"
+                  decoration-muted="status == 'cancel'">
+                <field name="status" column_invisible="1"/>
+                <field name="can_review_mine" column_invisible="1"/>
+                <field name="res_model_id" string="Tipo" options="{'no_open': True}"/>
+                <field name="res_name" string="Documento"/>
+                <field name="name" string="Nivel"/>
+                <field name="sequence" string="Secuencia" optional="hide"/>
+                <field name="display_status" string="Estado"/>
+                <field name="todo_by" string="Aprueba"/>
+                <field name="requested_by" string="Solicitado por" optional="show"/>
+                <field name="create_date" string="Solicitado el"/>
+                <field name="done_by" string="Resuelto por" optional="show"/>
+                <field name="reviewed_date" string="Resuelto el" optional="show"/>
+                <field name="comment" string="Comentario" optional="hide"/>
+                <button name="action_my_approvals_validate" type="object" string="Aprobar"
+                        icon="fa-check" class="text-success" invisible="not can_review_mine"/>
+                <button name="action_my_approvals_reject" type="object" string="Rechazar"
+                        icon="fa-times" class="text-danger" invisible="not can_review_mine"/>
+                <button name="open_origin" type="object" string="Abrir documento"
+                        icon="fa-external-link"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="tier_review_view_form_my_approvals" model="ir.ui.view">
+        <field name="name">tier.review.form.my.approvals</field>
+        <field name="model">tier.review</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <form string="Aprobación" create="0" edit="0" delete="0">
+                <header>
+                    <field name="can_review_mine" invisible="1"/>
+                    <button name="action_my_approvals_validate" type="object" string="Aprobar"
+                            class="btn-primary" invisible="not can_review_mine"/>
+                    <button name="action_my_approvals_reject" type="object" string="Rechazar"
+                            invisible="not can_review_mine"/>
+                    <button name="open_origin" type="object" string="Abrir documento"/>
+                    <field name="status" widget="statusbar"
+                           statusbar_visible="waiting,pending,approved"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="res_name" string="Documento"/>
+                        <h1><field name="res_name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="res_model_id" string="Tipo" options="{'no_open': True}"/>
+                            <field name="name" string="Nivel"/>
+                            <field name="sequence" string="Secuencia"/>
+                            <field name="todo_by" string="Aprueba"/>
+                        </group>
+                        <group>
+                            <field name="requested_by" string="Solicitado por"/>
+                            <field name="create_date" string="Solicitado el"/>
+                            <field name="done_by" string="Resuelto por"/>
+                            <field name="reviewed_date" string="Resuelto el"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="comment" string="Comentario"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="tier_review_view_search_my_approvals" model="ir.ui.view">
+        <field name="name">tier.review.search.my.approvals</field>
+        <field name="model">tier.review</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <search string="Aprobaciones">
+                <field name="name" string="Nivel"/>
+                <field name="res_model_id" string="Tipo"/>
+                <field name="reviewer_ids" string="Aprobador"/>
+                <field name="requested_by"/>
+                <field name="done_by"/>
+                <separator/>
+                <filter string="Me toca aprobar" name="can_review_mine"
+                        domain="[('can_review_mine', '=', True)]"/>
+                <separator/>
+                <filter string="Abiertas" name="open"
+                        domain="[('status', 'in', ('waiting', 'pending'))]"/>
+                <filter string="Aprobadas" name="approved"
+                        domain="[('status', '=', 'approved')]"/>
+                <filter string="Rechazadas" name="rejected"
+                        domain="[('status', '=', 'rejected')]"/>
+                <separator/>
+                <filter string="Solicitadas por mí" name="requested_by_me"
+                        domain="[('requested_by', '=', uid)]"/>
+                <filter string="Resueltas por mí" name="done_by_me"
+                        domain="[('done_by', '=', uid)]"/>
+                <separator/>
+                <filter string="Fecha de solicitud" name="filter_create_date" date="create_date"/>
+                <filter string="Fecha de resolución" name="filter_reviewed_date" date="reviewed_date"/>
+                <group expand="0" string="Agrupar por">
+                    <filter string="Tipo" name="group_res_model" context="{'group_by': 'res_model_id'}"/>
+                    <filter string="Estado" name="group_status" context="{'group_by': 'status'}"/>
+                    <filter string="Nivel" name="group_definition" context="{'group_by': 'definition_id'}"/>
+                    <filter string="Solicitado por" name="group_requested_by" context="{'group_by': 'requested_by'}"/>
+                    <filter string="Resuelto por" name="group_done_by" context="{'group_by': 'done_by'}"/>
+                    <filter string="Mes de solicitud" name="group_create_month" context="{'group_by': 'create_date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="tier_review_view_pivot_my_approvals" model="ir.ui.view">
+        <field name="name">tier.review.pivot.my.approvals</field>
+        <field name="model">tier.review</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <pivot string="Análisis de aprobaciones" sample="1">
+                <field name="res_model_id" type="row"/>
+                <field name="status" type="col"/>
+                <field name="approval_qty" type="measure"/>
+                <field name="approval_duration_days" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="tier_review_view_graph_my_approvals" model="ir.ui.view">
+        <field name="name">tier.review.graph.my.approvals</field>
+        <field name="model">tier.review</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <graph string="Análisis de aprobaciones" type="bar" sample="1">
+                <field name="res_model_id"/>
+                <field name="status"/>
+                <field name="approval_qty" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <!-- Acciones -->
+    <record id="action_my_approvals_to_approve" model="ir.actions.act_window">
+        <field name="name">Por aprobar</field>
+        <field name="res_model">tier.review</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('reviewer_ids', 'in', uid), ('status', 'in', ('waiting', 'pending'))]</field>
+        <field name="context">{'search_default_can_review_mine': 1}</field>
+        <field name="search_view_id" ref="tier_review_view_search_my_approvals"/>
+        <field name="view_ids" eval="[Command.clear(),
+            Command.create({'view_mode': 'list', 'view_id': ref('tier_review_view_list_my_approvals')}),
+            Command.create({'view_mode': 'form', 'view_id': ref('tier_review_view_form_my_approvals')})]"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No tenés aprobaciones pendientes</p>
+            <p>Acá aparecen las aprobaciones de expedientes, solicitudes, facturas y
+               demás documentos que esperan tu decisión.</p>
+        </field>
+    </record>
+
+    <record id="action_my_approvals_requested" model="ir.actions.act_window">
+        <field name="name">Solicitadas por mí</field>
+        <field name="res_model">tier.review</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('requested_by', '=', uid)]</field>
+        <field name="context">{'search_default_open': 1}</field>
+        <field name="search_view_id" ref="tier_review_view_search_my_approvals"/>
+        <field name="view_ids" eval="[Command.clear(),
+            Command.create({'view_mode': 'list', 'view_id': ref('tier_review_view_list_my_approvals')}),
+            Command.create({'view_mode': 'form', 'view_id': ref('tier_review_view_form_my_approvals')})]"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No pediste aprobaciones</p>
+        </field>
+    </record>
+
+    <record id="action_my_approvals_history" model="ir.actions.act_window">
+        <field name="name">Historial</field>
+        <field name="res_model">tier.review</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('done_by', '=', uid)]</field>
+        <field name="search_view_id" ref="tier_review_view_search_my_approvals"/>
+        <field name="view_ids" eval="[Command.clear(),
+            Command.create({'view_mode': 'list', 'view_id': ref('tier_review_view_list_my_approvals')}),
+            Command.create({'view_mode': 'form', 'view_id': ref('tier_review_view_form_my_approvals')})]"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Todavía no resolviste aprobaciones</p>
+        </field>
+    </record>
+
+    <record id="action_my_approvals_all" model="ir.actions.act_window">
+        <field name="name">Todas</field>
+        <field name="res_model">tier.review</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_open': 1}</field>
+        <field name="search_view_id" ref="tier_review_view_search_my_approvals"/>
+        <field name="view_ids" eval="[Command.clear(),
+            Command.create({'view_mode': 'list', 'view_id': ref('tier_review_view_list_my_approvals')}),
+            Command.create({'view_mode': 'form', 'view_id': ref('tier_review_view_form_my_approvals')})]"/>
+    </record>
+
+    <record id="action_my_approvals_analysis" model="ir.actions.act_window">
+        <field name="name">Análisis</field>
+        <field name="res_model">tier.review</field>
+        <field name="view_mode">pivot,graph,list</field>
+        <field name="search_view_id" ref="tier_review_view_search_my_approvals"/>
+        <field name="view_ids" eval="[Command.clear(),
+            Command.create({'view_mode': 'pivot', 'view_id': ref('tier_review_view_pivot_my_approvals')}),
+            Command.create({'view_mode': 'graph', 'view_id': ref('tier_review_view_graph_my_approvals')}),
+            Command.create({'view_mode': 'list', 'view_id': ref('tier_review_view_list_my_approvals')})]"/>
+    </record>
+</odoo>

@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_tier_definition_my_approvals_manager,tier.definition my approvals manager,base_tier_validation.model_tier_definition,group_my_approvals_manager,1,1,1,1
+access_tier_validation_exception_my_approvals_manager,tier.validation.exception my approvals manager,base_tier_validation.model_tier_validation_exception,group_my_approvals_manager,1,1,1,1
