@@ -146,25 +146,45 @@ class TestMyApprovalsFlow(CommonTierValidation):
         self.assertEqual(self.review.status, "pending")
 
     def test_turn_follows_sequence(self):
-        # test_field > 3: primero aprueba test_user_2 (secuencia 10), después
-        # test_user_1 (secuencia 20).
+        # test_field > 3: test_user_1 (definición con secuencia 20) y
+        # test_user_2 (secuencia 10). En base_tier_validation firma primero la
+        # definición de mayor secuencia: test_user_1.
         record = self.test_model.create({"test_field": 4.0})
         record.with_user(self.test_user_3_multi_company).request_validation()
-        first = record.review_ids.filtered(lambda r: r.sequence == 10)
-        second = record.review_ids.filtered(lambda r: r.sequence == 20)
-        self.assertTrue(first.with_user(self.test_user_2).can_review_mine)
-        self.assertFalse(second.with_user(self.test_user_1).can_review_mine)
-        first.with_user(self.test_user_2).action_my_approvals_validate()
+        first = record.review_ids.filtered(lambda r: self.test_user_1 in r.reviewer_ids)
+        second = record.review_ids.filtered(
+            lambda r: self.test_user_2 in r.reviewer_ids
+        )
+        self.assertTrue(first.with_user(self.test_user_1).can_review_mine)
+        self.assertFalse(second.with_user(self.test_user_2).can_review_mine)
+        first.with_user(self.test_user_1).action_my_approvals_validate()
         second.invalidate_recordset(["can_review_mine"])
-        self.assertTrue(second.with_user(self.test_user_1).can_review_mine)
+        self.assertTrue(second.with_user(self.test_user_2).can_review_mine)
 
     def test_bulk_validate(self):
         other = self.test_model.create({"test_field": 1.0})
         other.with_user(self.test_user_2).request_validation()
-        # Una revisión de test_user_1 que todavía no le toca (secuencia).
-        later = self.test_model.create({"test_field": 4.0})
+        # Una revisión de test_user_1 que todavía no le toca: antes firma
+        # test_user_2 (definición de mayor secuencia). 0.4 no entra en ninguna
+        # definición del fixture.
+        for user, sequence in ((self.test_user_2, 50), (self.test_user_1, 40)):
+            self.tier_def_obj.create(
+                {
+                    "model_id": self.tester_model.id,
+                    "review_type": "individual",
+                    "reviewer_id": user.id,
+                    "definition_domain": "[('test_field', '=', 0.4)]",
+                    "approve_sequence": True,
+                    "sequence": sequence,
+                    "name": f"Turno {sequence}",
+                }
+            )
+        later = self.test_model.create({"test_field": 0.4})
         later.with_user(self.test_user_2).request_validation()
-        not_yet = later.review_ids.filtered(lambda r: r.sequence == 20)
+        not_yet = later.review_ids.filtered(
+            lambda r: self.test_user_1 in r.reviewer_ids
+        )
+        self.assertFalse(not_yet.with_user(self.test_user_1).can_review_mine)
         selected = self.review | other.review_ids | not_yet
         action = selected.with_user(
             self.test_user_1
