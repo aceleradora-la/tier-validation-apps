@@ -55,4 +55,12 @@
               parent="menu_my_approvals_config"
               action="base_tier_validation.tier_validation_exception_action"
               sequence="20"/>
+
+    <!-- Ajustes de Odoo: guardarlos requiere ser administrador del sistema. -->
+    <menuitem id="menu_my_approvals_settings"
+              name="Ajustes"
+              parent="menu_my_approvals_config"
+              action="action_my_approvals_settings"
+              groups="base.group_system"
+              sequence="30"/>
 </odoo>

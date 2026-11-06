@@ -3,7 +3,7 @@
 {
     "name": "Mis aprobaciones",
     "summary": "Bandeja de aprobaciones por niveles de todos los documentos",
-    "version": "18.0.1.1.0",
+    "version": "18.0.1.2.0",
     "category": "Productivity",
     "website": "https://github.com/aceleradora-la/tier-validation-apps",
     "author": "aceleradora.la",
@@ -14,7 +14,10 @@
     "data": [
         "security/my_approvals_security.xml",
         "security/ir.model.access.csv",
+        "data/ir_cron_data.xml",
+        "data/mail_template_data.xml",
         "views/tier_review_views.xml",
+        "views/res_config_settings_views.xml",
         "views/my_approvals_menus.xml",
     ],
 }

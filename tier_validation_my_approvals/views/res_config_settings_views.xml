@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_my_approvals" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.my.approvals</field>
+        <field name="model">res.config.settings</field>
+        <field name="priority" eval="90"/>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app data-string="Mis aprobaciones" string="Mis aprobaciones"
+                     name="tier_validation_my_approvals">
+                    <block title="Resumen diario" name="my_approvals_digest">
+                        <setting id="my_approvals_digest" company_dependent="1"
+                                 help="Un correo por día a cada usuario con lo que le toca aprobar. A quien no tiene nada pendiente no se le envía.">
+                            <field name="my_approvals_digest_active"/>
+                            <div class="content-group" invisible="not my_approvals_digest_active">
+                                <div class="row mt16">
+                                    <label for="my_approvals_digest_hour" class="col-lg-4 o_light_label"/>
+                                    <field name="my_approvals_digest_hour" widget="float_time"/>
+                                </div>
+                                <div class="row" invisible="not my_approvals_digest_last_date">
+                                    <label for="my_approvals_digest_last_date" class="col-lg-4 o_light_label"/>
+                                    <field name="my_approvals_digest_last_date"/>
+                                </div>
+                            </div>
+                            <div class="mt8">
+                                <button name="action_my_approvals_digest_test" type="object"
+                                        string="Enviarme el resumen ahora"
+                                        class="btn-link" icon="oi-arrow-right"/>
+                            </div>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_my_approvals_settings" model="ir.actions.act_window">
+        <field name="name">Ajustes</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">inline</field>
+        <field name="context">{'module': 'tier_validation_my_approvals', 'bin_size': False}</field>
+    </record>
+</odoo>

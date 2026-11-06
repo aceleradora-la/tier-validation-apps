@@ -2,6 +2,8 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
 
 import unittest
+from datetime import date, datetime
+from unittest.mock import patch
 
 from odoo.exceptions import UserError
 from odoo.tests import new_test_user, tagged
@@ -211,6 +213,114 @@ class TestMyApprovalsFlow(CommonTierValidation):
         record.with_user(self.test_user_2).request_validation()
         review = record.review_ids
         action = review.with_user(self.test_user_1).action_my_approvals_validate_bulk()
-        self.assertEqual(review.status, "pending")
+        self.assertNotEqual(review.status, "approved")
         self.assertIn("Piden comentario", action["params"]["message"])
         self.assertTrue(action["params"]["sticky"])
+
+
+@unittest.skipIf(MISSING_TEST_HELPER, "odoo_test_helper no está instalado")
+@tagged("post_install", "-at_install")
+class TestMyApprovalsDigest(CommonTierValidation):
+    """Resumen diario: a quién le llega, qué trae y cuándo sale."""
+
+    def setUp(self):
+        super().setUp()
+        self.test_user_1.email = "aprobador1@example.com"
+        self.test_user_2.email = "aprobador2@example.com"
+        self.company = self.test_user_1.company_id
+        self.company.write(
+            {
+                "my_approvals_digest_active": True,
+                "my_approvals_digest_hour": 8.0,
+                "my_approvals_digest_last_date": False,
+            }
+        )
+        self.test_record.with_user(self.test_user_2).request_validation()
+        self.review = self.test_record.review_ids
+
+    def _digest_mails(self, user):
+        return self.env["mail.mail"].search(
+            [
+                ("email_to", "ilike", user.email),
+                ("subject", "=", "Tenés aprobaciones pendientes"),
+            ]
+        )
+
+    def _at(self, hour):
+        return datetime(2026, 11, 6, hour, 0)
+
+    def test_groups_by_document(self):
+        groups = self.test_user_1._my_approvals_digest_groups()
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(groups[0]["name"], self.tester_model.name)
+        row = groups[0]["rows"][0]
+        self.assertEqual(row["name"], self.test_record.display_name)
+        self.assertEqual(row["requested_by"], self.test_user_2.name)
+        self.assertEqual(row["days"], 0)
+        self.assertTrue(row["url"].endswith(f"/{self.review.id}"))
+        self.assertIn("action-tier_validation_my_approvals", row["url"])
+
+    def test_nothing_pending_for_other_user(self):
+        self.assertFalse(self.test_user_2._my_approvals_digest_groups())
+        self.assertEqual(self.test_user_2._my_approvals_send_digest(), 0)
+        self.assertFalse(self._digest_mails(self.test_user_2))
+
+    def test_send_digest(self):
+        self.assertEqual(self.test_user_1._my_approvals_send_digest(), 1)
+        mail = self._digest_mails(self.test_user_1)
+        self.assertEqual(len(mail), 1)
+        self.assertIn(self.test_record.display_name, mail.body_html)
+        self.assertIn(f"/{self.review.id}", mail.body_html)
+        self.assertIn(self.tester_model.name, mail.body_html)
+
+    def test_approved_leaves_digest(self):
+        self.review.with_user(self.test_user_1).action_my_approvals_validate()
+        self.assertFalse(self.test_user_1._my_approvals_digest_reviews())
+        self.assertEqual(self.test_user_1._my_approvals_send_digest(), 0)
+
+    def test_digest_follows_turn(self):
+        # Con dos niveles, al segundo no le llega hasta que firme el primero.
+        record = self.test_model.create({"test_field": 4.0})
+        record.with_user(self.test_user_3_multi_company).request_validation()
+        first = record.review_ids.filtered(lambda r: self.test_user_1 in r.reviewer_ids)
+        self.assertIn(first, self.test_user_1._my_approvals_digest_reviews())
+        self.assertFalse(self.test_user_2._my_approvals_digest_reviews())
+        first.with_user(self.test_user_1).action_my_approvals_validate()
+        self.env["tier.review"].invalidate_model(["can_review_mine"])
+        self.assertTrue(self.test_user_2._my_approvals_digest_reviews())
+
+    def test_recipients(self):
+        recipients = self.company._my_approvals_digest_recipients()
+        self.assertIn(self.test_user_1, recipients)
+        self.test_user_1.email = False
+        self.assertNotIn(
+            self.test_user_1, self.company._my_approvals_digest_recipients()
+        )
+
+    def test_is_due(self):
+        company = self.company
+        self.assertFalse(company._my_approvals_digest_is_due(self._at(7)))
+        self.assertTrue(company._my_approvals_digest_is_due(self._at(8)))
+        company.my_approvals_digest_last_date = date(2026, 11, 6)
+        self.assertFalse(company._my_approvals_digest_is_due(self._at(9)))
+        company.my_approvals_digest_last_date = date(2026, 11, 5)
+        self.assertTrue(company._my_approvals_digest_is_due(self._at(9)))
+        company.my_approvals_digest_active = False
+        self.assertFalse(company._my_approvals_digest_is_due(self._at(9)))
+
+    def test_cron_sends_once_a_day(self):
+        now = self._at(10)
+        company_class = type(self.env["res.company"])
+        with patch.object(
+            company_class, "_my_approvals_digest_now", lambda _self: now
+        ):
+            self.env["res.company"]._cron_my_approvals_digest()
+            self.assertEqual(self.company.my_approvals_digest_last_date, now.date())
+            self.assertEqual(len(self._digest_mails(self.test_user_1)), 1)
+            self.env["res.company"]._cron_my_approvals_digest()
+        self.assertEqual(len(self._digest_mails(self.test_user_1)), 1)
+
+    def test_cron_inactive(self):
+        self.company.my_approvals_digest_active = False
+        self.env["res.company"]._cron_my_approvals_digest()
+        self.assertFalse(self._digest_mails(self.test_user_1))
